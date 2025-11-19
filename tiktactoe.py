@@ -28,6 +28,25 @@ class TicTacToeGame():
 
         self.board_state[last_move[1], last_move[0]] = 0
 
+    def hash(self):
+        hash = ""
+
+        for y in range(3):
+            for x in range(3):
+               hash += self.board_state[y, x]
+
+        return hash
+    
+    def valid_moves(self):
+        moves = []
+
+        for y in range(3):
+            for x in range(3):
+               if self.move_valid([x, y]):
+                   moves.append([x, y])
+
+        return moves
+
     def result(self):
         if self.board_state[0, 0] == 1 and self.board_state[0, 1] == 1 and self.board_state[0, 2] == 1:
             return 1
