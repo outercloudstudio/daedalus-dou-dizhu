@@ -1,37 +1,52 @@
 import torch
 import math
+from tiktactoe import TicTacToeGame
 
 torch.set_default_device( torch.device("cuda:0"))
 
-x = torch.linspace(-math.pi, math.pi, 2000)
-y = torch.sin(x)
+game = TicTacToeGame()
+game.display()
 
-p = torch.tensor([1, 2, 3])
-xx = x.unsqueeze(-1).pow(p)
+game.move([0, 0])
+game.move([0, 1])
+game.move([0, 2])
+game.display()
+game.undo()
+game.display()
+game.undo()
+game.display()
+game.undo()
+game.display()
 
-model = torch.nn.Sequential(
-    torch.nn.Linear(3, 1),
-    torch.nn.Flatten(0, 1)
-)
+# x = torch.linspace(-math.pi, math.pi, 2000)
+# y = torch.sin(x)
 
-loss_fn = torch.nn.MSELoss(reduction='sum')
+# p = torch.tensor([1, 2, 3])
+# xx = x.unsqueeze(-1).pow(p)
 
-learning_rate = 1e-3
-optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
+# model = torch.nn.Sequential(
+#     torch.nn.Linear(3, 1),
+#     torch.nn.Flatten(0, 1)
+# )
 
-for t in range(2000):
-    model.zero_grad()
+# loss_fn = torch.nn.MSELoss(reduction='sum')
 
-    y_pred = model(xx)
+# learning_rate = 1e-3
+# optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
 
-    loss = loss_fn(y_pred, y)
-    if t % 100 == 99:
-        print(t, loss.item())
+# for t in range(2000):
+#     model.zero_grad()
 
-    loss.backward()
+#     y_pred = model(xx)
 
-    optimizer.step()
+#     loss = loss_fn(y_pred, y)
+#     if t % 100 == 99:
+#         print(t, loss.item())
 
-linear_layer = model[0]
+#     loss.backward()
 
-print(f'Result: y = {linear_layer.bias.item()} + {linear_layer.weight[:, 0].item()} x + {linear_layer.weight[:, 1].item()} x^2 + {linear_layer.weight[:, 2].item()} x^3')
+#     optimizer.step()
+
+# linear_layer = model[0]
+
+# print(f'Result: y = {linear_layer.bias.item()} + {linear_layer.weight[:, 0].item()} x + {linear_layer.weight[:, 1].item()} x^2 + {linear_layer.weight[:, 2].item()} x^3')
