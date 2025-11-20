@@ -1,22 +1,37 @@
 import torch
 import math
-from tiktactoe import TicTacToeGame
-
+from tic_tac_toe import TicTacToeGame
+from monte_carlo import MonteCarloNode
 torch.set_default_device( torch.device("cuda:0"))
 
 game = TicTacToeGame()
 game.display()
 
-game.move([0, 0])
-game.move([0, 1])
-game.move([0, 2])
-game.display()
-game.undo()
-game.display()
-game.undo()
-game.display()
-game.undo()
-game.display()
+monte_carlo_tree = MonteCarloNode()
+
+def explore_node(node, depth = 0):
+    if node.moves == None:
+        valid_moves = game.valid_moves()
+
+        node.prediction = []
+
+        for move in valid_moves:
+            childNode = MonteCarloNode()
+            childNode.move = move
+            childNode.parent = node
+            childNode.policy_score = 0
+
+            node.moves.append(childNode)
+
+    result = game.result()
+
+    if result == 0:
+        pass
+    else:
+        pass
+    
+
+explore_node(monte_carlo_tree)
 
 # x = torch.linspace(-math.pi, math.pi, 2000)
 # y = torch.sin(x)
