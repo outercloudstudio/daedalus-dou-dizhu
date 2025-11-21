@@ -33,7 +33,8 @@ def monte_carlo_tree_search(node, display = False):
             childNode = MonteCarloNode()
             childNode.move = move
             childNode.parent = node
-            childNode.policy_score = policy[move[1] * 3 + move[0]].item()
+            # childNode.policy_score = policy[move[1] * 3 + move[0]].item()
+            childNode.policy_score = 0
 
             node.moves.append(childNode)
 
@@ -50,7 +51,11 @@ def monte_carlo_tree_search(node, display = False):
                 best_move = move
                 best_score = score
 
-            if display: print(move.move, score, move.visits)
+            if display:
+                if move.visits > 0:
+                    print(move.move, math.floor(move.get_score() * 100) / 100, math.floor(move.score_total / move.visits * 100) / 100, move.visits, math.floor(move.policy_score * 100) / 100)
+                else:
+                    print(move.move, math.floor(move.get_score() * 100) / 100, "no visits", move.visits,  math.floor(move.policy_score * 100) / 100)
 
         if display: print("Exploring ", best_move.move)
 
@@ -60,17 +65,15 @@ def monte_carlo_tree_search(node, display = False):
 
         game.undo()
 
-        node.score_total += -result
+        node.score_total += result * -game.perspective
 
-        return -result
+        return result
     else:
         if display: print("Ended with result! ", result)
 
-        node.score_total += result * game.perspective
+        node.score_total += result * -game.perspective
 
         return result
-
-temperature = 1
 
 def play_game(node, history):
     for i in range(20):
@@ -111,7 +114,10 @@ def train(result, history, display=False):
             game.display()
 
             for move in history_node.moves:
-                print(move.move, math.floor(move.get_score() * 100) / 100)
+                if move.visits > 0:
+                    print(move.move, math.floor(move.get_score() * 100) / 100, math.floor(move.score_total / move.visits * 100) / 100, move.visits, math.floor(move.policy_score * 100) / 100)
+                else:
+                    print(move.move, math.floor(move.get_score() * 100) / 100, "no visits", move.visits,  math.floor(move.policy_score * 100) / 100)
 
         if len(history_node.moves) == 0:
             continue
@@ -141,12 +147,23 @@ def train(result, history, display=False):
 
     print(total_loss / len(history))
 
-for i in range(1000):
-    history = []
-    result = play_game(MonteCarloNode(), history)
-    train(result, history)
+# for i in range(1000):
+#     history = []
+#     result = play_game(MonteCarloNode(), history)
+#     train(result, history)
 
-    if i % 10 == 0:
-        history = []
-        result = play_game(MonteCarloNode(), history)
-        train(result, history, True)
+#     if i % 10 == 0:
+#         history = []
+#         result = play_game(MonteCarloNode(), history)
+#         train(result, history, True)
+
+state = MonteCarloNode()
+
+game.move([0,0])
+game.move([1,0])
+game.move([0,1])
+
+for i in range(20):
+    monte_carlo_tree_search(state)
+
+monte_carlo_tree_search(state, True)
