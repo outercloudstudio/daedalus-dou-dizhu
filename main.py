@@ -33,8 +33,7 @@ def monte_carlo_tree_search(node, display = False):
             childNode = MonteCarloNode()
             childNode.move = move
             childNode.parent = node
-            # childNode.policy_score = policy[move[1] * 3 + move[0]].item()
-            childNode.policy_score = 0
+            childNode.policy_score = policy[move[1] * 3 + move[0]].item()
 
             node.moves.append(childNode)
 
@@ -147,23 +146,12 @@ def train(result, history, display=False):
 
     print(total_loss / len(history))
 
-# for i in range(1000):
-#     history = []
-#     result = play_game(MonteCarloNode(), history)
-#     train(result, history)
+for i in range(1000):
+    history = []
+    result = play_game(MonteCarloNode(), history)
+    train(result, history)
 
-#     if i % 10 == 0:
-#         history = []
-#         result = play_game(MonteCarloNode(), history)
-#         train(result, history, True)
-
-state = MonteCarloNode()
-
-game.move([0,0])
-game.move([1,0])
-game.move([0,1])
-
-for i in range(20):
-    monte_carlo_tree_search(state)
-
-monte_carlo_tree_search(state, True)
+    if i % 10 == 0:
+        history = []
+        result = play_game(MonteCarloNode(), history)
+        train(result, history, True)
