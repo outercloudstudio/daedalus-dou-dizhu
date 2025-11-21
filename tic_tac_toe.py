@@ -27,6 +27,8 @@ class TicTacToeGame():
         last_move = self.history.pop()
 
         self.board_state[last_move[1], last_move[0]] = 0
+        
+        self.perspective *= -1
 
     def hash(self):
         hash = ""
@@ -49,36 +51,36 @@ class TicTacToeGame():
 
     def result(self):
         if self.board_state[0, 0] == 1 and self.board_state[0, 1] == 1 and self.board_state[0, 2] == 1:
-            return 1
+            return 1 * self.perspective
         if self.board_state[1, 0] == 1 and self.board_state[1, 1] == 1 and self.board_state[1, 2] == 1:
-            return 1
+            return 1 * self.perspective
         if self.board_state[2, 0] == 1 and self.board_state[2, 1] == 1 and self.board_state[2, 2] == 1:
-            return 1
+            return 1 * self.perspective
         if self.board_state[0, 0] == 1 and self.board_state[1, 0] == 1 and self.board_state[2, 0] == 1:
-            return 1
+            return 1 * self.perspective
         if self.board_state[0, 1] == 1 and self.board_state[1, 1] == 1 and self.board_state[2, 1] == 1:
-            return 1
+            return 1 * self.perspective
         if self.board_state[0, 2] == 1 and self.board_state[1, 2] == 1 and self.board_state[2, 2] == 1:
-            return 1
+            return 1 * self.perspective
         if self.board_state[0, 0] == 1 and self.board_state[1, 1] == 1 and self.board_state[2, 2] == 1:
-            return 1
+            return 1 * self.perspective
         if self.board_state[0, 2] == 1 and self.board_state[1, 1] == 1 and self.board_state[2, 0] == 1:
             return 1 * self.perspective
         
         if self.board_state[0, 0] == -1 and self.board_state[0, 1] == -1 and self.board_state[0, 2] == -1:
-            return -1
+            return -1 * self.perspective
         if self.board_state[1, 0] == -1 and self.board_state[1, 1] == -1 and self.board_state[1, 2] == -1:
-            return -1
+            return -1 * self.perspective
         if self.board_state[2, 0] == -1 and self.board_state[2, 1] == -1 and self.board_state[2, 2] == -1:
-            return -1
+            return -1 * self.perspective
         if self.board_state[0, 0] == -1 and self.board_state[1, 0] == -1 and self.board_state[2, 0] == -1:
-            return -1
+            return -1 * self.perspective
         if self.board_state[0, 1] == -1 and self.board_state[1, 1] == -1 and self.board_state[2, 1] == -1:
-            return -1
+            return -1 * self.perspective
         if self.board_state[0, 2] == -1 and self.board_state[1, 2] == -1 and self.board_state[2, 2] == -1:
-            return -1
+            return -1 * self.perspective
         if self.board_state[0, 0] == -1 and self.board_state[1, 1] == -1 and self.board_state[2, 2] == -1:
-            return -1
+            return -1 * self.perspective
         if self.board_state[0, 2] == -1 and self.board_state[1, 1] == -1 and self.board_state[2, 0] == -1:
             return -1 * self.perspective
         

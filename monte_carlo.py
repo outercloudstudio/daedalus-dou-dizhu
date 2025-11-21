@@ -13,4 +13,7 @@ class MonteCarloNode():
     moves = None
 
     def get_score(self):
-        return self.score_total / self.visits + exploration * self.policy_score * math.sqrt(self.parent.visits) / (1 + self.visits)
+        if self.visits == 0:
+            return exploration * self.policy_score * math.sqrt(self.parent.visits) / (1 + self.visits)
+        else:
+            return self.score_total / self.visits + exploration * self.policy_score * math.sqrt(self.parent.visits) / (1 + self.visits)

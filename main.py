@@ -5,15 +5,19 @@ from monte_carlo import MonteCarloNode
 torch.set_default_device( torch.device("cuda:0"))
 
 game = TicTacToeGame()
-game.display()
 
 monte_carlo_tree = MonteCarloNode()
 
-def explore_node(node, depth = 0):
+def explore_node(node):
+    game.display()
+
+    node.visits += 1
+
     if node.moves == None:
         valid_moves = game.valid_moves()
 
         node.prediction = []
+        node.moves = []
 
         for move in valid_moves:
             childNode = MonteCarloNode()
@@ -26,11 +30,39 @@ def explore_node(node, depth = 0):
     result = game.result()
 
     if result == 0:
-        pass
-    else:
-        pass
-    
+        best_move = None
+        best_score = 0
 
+        for move in node.moves:
+            score = move.get_score()
+
+            if best_move == None or score > best_score:
+                best_move = move
+                best_score = score
+
+            print(move.move, score)
+
+        print("Exploring ", best_move.move)
+
+        game.move(best_move.move)
+
+        result = explore_node(best_move)
+
+        game.undo()
+
+        node.score_total += -result
+
+        return -result
+    else:
+        print("Ended with result! ", result)
+
+        node.score_total += result * game.perspective
+
+        return result
+
+explore_node(monte_carlo_tree)
+explore_node(monte_carlo_tree)
+explore_node(monte_carlo_tree)
 explore_node(monte_carlo_tree)
 
 # x = torch.linspace(-math.pi, math.pi, 2000)
