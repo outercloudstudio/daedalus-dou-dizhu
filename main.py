@@ -1,35 +1,44 @@
 import torch
+
+torch.set_default_device( torch.device("cuda:0"))
+
 import math
+import random
 from tic_tac_toe import TicTacToeGame
 from monte_carlo import MonteCarloNode
-torch.set_default_device( torch.device("cuda:0"))
+from model import TicTacToeModel
 
 game = TicTacToeGame()
 
-monte_carlo_tree = MonteCarloNode()
+model = TicTacToeModel()
 
-def explore_node(node):
-    game.display()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+def monte_carlo_tree_search(node, display = False):
+    if display: game.display()
 
     node.visits += 1
 
     if node.moves == None:
         valid_moves = game.valid_moves()
 
-        node.prediction = []
+        policy, score = model(game)
+
+        node.prediction = (policy, score)
+
         node.moves = []
 
         for move in valid_moves:
             childNode = MonteCarloNode()
             childNode.move = move
             childNode.parent = node
-            childNode.policy_score = 0
+            childNode.policy_score = policy[move[1] * 3 + move[0]].item()
 
             node.moves.append(childNode)
 
     result = game.result()
 
-    if result == 0:
+    if result == 0 and len(node.moves) > 0:
         best_move = None
         best_score = 0
 
@@ -40,13 +49,13 @@ def explore_node(node):
                 best_move = move
                 best_score = score
 
-            print(move.move, score)
+            if display: print(move.move, score, move.visits)
 
-        print("Exploring ", best_move.move)
+        if display: print("Exploring ", best_move.move)
 
         game.move(best_move.move)
 
-        result = explore_node(best_move)
+        result = monte_carlo_tree_search(best_move, display)
 
         game.undo()
 
@@ -54,16 +63,46 @@ def explore_node(node):
 
         return -result
     else:
-        print("Ended with result! ", result)
+        if display: print("Ended with result! ", result)
 
         node.score_total += result * game.perspective
 
         return result
 
-explore_node(monte_carlo_tree)
-explore_node(monte_carlo_tree)
-explore_node(monte_carlo_tree)
-explore_node(monte_carlo_tree)
+def train_model(node):
+    if node.prediction == None:
+        return
+
+    policy, score = node.prediction
+
+    target_policy = torch.zeros(9)
+    target_score = torch.tensor(1.0)
+
+    loss = model.loss(policy, score, target_policy, target_score)
+
+    print(loss.item())
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    result = game.result()
+
+    if result == 0 and len(node.moves) > 0:
+        for move in node.moves:
+            game.move(move.move)
+
+            train_model(move)
+
+            game.undo()
+
+def iteration():
+    monte_carlo_tree = MonteCarloNode()
+
+    for i in range(10):
+        monte_carlo_tree_search(monte_carlo_tree)
+
+    train_model(monte_carlo_tree)
 
 # x = torch.linspace(-math.pi, math.pi, 2000)
 # y = torch.sin(x)
