@@ -5,17 +5,19 @@ class TicTacToeModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.layer1 = torch.nn.Linear(9, 9)
-        self.layer2 = torch.nn.Linear(9, 9)
-        self.layer3 = torch.nn.Linear(9, 10)
+        self.layer1 = torch.nn.Linear(9, 20)
+        self.layer2 = torch.nn.Linear(20, 20)
+        self.layer3 = torch.nn.Linear(20, 20)
+        self.layer4 = torch.nn.Linear(20, 10)
 
     def forward(self, game):
         value = game.board_state.flatten().float()
 
         value = torch.relu(self.layer1(value))
         value = torch.relu(self.layer2(value))
+        value = torch.relu(self.layer3(value))
 
-        value = self.layer3(value)
+        value = self.layer4(value)
 
         policy = value[:9]
         score = value[9]

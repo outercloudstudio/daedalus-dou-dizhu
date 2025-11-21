@@ -72,13 +72,15 @@ def monte_carlo_tree_search(node, display = False):
 
 temperature = 1
 
-def train_model(node, history):
-    for i in range(10):
+def play_game(node, history):
+    for i in range(20):
         monte_carlo_tree_search(node)
 
     result = game.result()
 
     if result == 0 and len(node.moves) > 0:
+        history.append(node)
+
         best_move = None
         best_score = 0
 
@@ -89,83 +91,62 @@ def train_model(node, history):
                 best_move = move
                 best_score = score
 
-        history.append(best_move)
-
         game.move(best_move.move)
 
-        train_model(best_move, history)
+        result = play_game(best_move, history)
+
+        game.undo()
+
+        return result
     else:
-        print("Finished game with result", result)
+        return result
 
-        for history_node in history:
-            game.undo()
+def train(result, history, display=False):
+    total_loss = 0
 
-        total_loss = 0
+    for history_node in history:
+        if history_node.move: game.move(history_node.move)
 
-        for history_node in history:
-            game.move(history_node.move)
-
+        if display: 
             game.display()
 
-            if len(history_node.moves) == 0:
-                continue
-
-            (policy, score) = model.forward(game)
-
-            target_policy = torch.zeros(9)
-
             for move in history_node.moves:
-                target_policy[move.move[1] * 3 + move.move[0]] = move.visits
+                print(move.move, math.floor(move.get_score() * 100) / 100)
 
-            target_policy = target_policy / torch.sum(target_policy)
+        if len(history_node.moves) == 0:
+            continue
 
-            target_score = torch.tensor(result)
+        (policy, score) = model.forward(game)
 
-            loss = model.loss(policy, score, target_policy, target_score)
+        target_policy = torch.zeros(9)
 
-            total_loss += abs(loss.item())
+        for move in history_node.moves:
+            target_policy[move.move[1] * 3 + move.move[0]] = move.visits
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
 
-        for history_node in history:
-            game.undo()
+        target_policy = target_policy / torch.sum(target_policy)
 
-        print(total_loss / len(history))
+        target_score = torch.tensor(result)
 
-for i in range(10):
-    train_model(MonteCarloNode(), [])
+        loss = model.loss(policy, score, target_policy, target_score)
 
-# x = torch.linspace(-math.pi, math.pi, 2000)
-# y = torch.sin(x)
+        total_loss += abs(loss.item())
 
-# p = torch.tensor([1, 2, 3])
-# xx = x.unsqueeze(-1).pow(p)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-# model = torch.nn.Sequential(
-#     torch.nn.Linear(3, 1),
-#     torch.nn.Flatten(0, 1)
-# )
+    for history_node in history:
+        if history_node.move: game.undo()
 
-# loss_fn = torch.nn.MSELoss(reduction='sum')
+    print(total_loss / len(history))
 
-# learning_rate = 1e-3
-# optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate)
+for i in range(1000):
+    history = []
+    result = play_game(MonteCarloNode(), history)
+    train(result, history)
 
-# for t in range(2000):
-#     model.zero_grad()
-
-#     y_pred = model(xx)
-
-#     loss = loss_fn(y_pred, y)
-#     if t % 100 == 99:
-#         print(t, loss.item())
-
-#     loss.backward()
-
-#     optimizer.step()
-
-# linear_layer = model[0]
-
-# print(f'Result: y = {linear_layer.bias.item()} + {linear_layer.weight[:, 0].item()} x + {linear_layer.weight[:, 1].item()} x^2 + {linear_layer.weight[:, 2].item()} x^3')
+    if i % 10 == 0:
+        history = []
+        result = play_game(MonteCarloNode(), history)
+        train(result, history, True)
