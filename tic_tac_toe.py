@@ -28,6 +28,7 @@ class TicTacToeGame():
 
         self.board_state[last_move[1], last_move[0]] = 0
         
+        self.board_state *= -1
         self.perspective *= -1
 
     def hash(self):

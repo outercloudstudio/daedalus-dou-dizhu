@@ -11,7 +11,7 @@ class TicTacToeModel(torch.nn.Module):
 
     def forward(self, game):
         value = game.board_state.flatten().float()
-        
+
         value = torch.relu(self.layer1(value))
         value = torch.relu(self.layer2(value))
 

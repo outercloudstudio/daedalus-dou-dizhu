@@ -1,6 +1,7 @@
 import torch
 
 torch.set_default_device( torch.device("cuda:0"))
+torch.autograd.set_detect_anomaly(True)
 
 import math
 import random
@@ -69,40 +70,72 @@ def monte_carlo_tree_search(node, display = False):
 
         return result
 
-def train_model(node):
-    if node.prediction == None:
-        return
+temperature = 1
 
-    policy, score = node.prediction
-
-    target_policy = torch.zeros(9)
-    target_score = torch.tensor(1.0)
-
-    loss = model.loss(policy, score, target_policy, target_score)
-
-    print(loss.item())
-
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+def train_model(node, history):
+    for i in range(10):
+        monte_carlo_tree_search(node)
 
     result = game.result()
 
     if result == 0 and len(node.moves) > 0:
+        best_move = None
+        best_score = 0
+
         for move in node.moves:
-            game.move(move.move)
+            score = move.get_score()
 
-            train_model(move)
+            if best_move == None or score > best_score:
+                best_move = move
+                best_score = score
 
+        history.append(best_move)
+
+        game.move(best_move.move)
+
+        train_model(best_move, history)
+    else:
+        print("Finished game with result", result)
+
+        for history_node in history:
             game.undo()
 
-def iteration():
-    monte_carlo_tree = MonteCarloNode()
+        total_loss = 0
 
-    for i in range(10):
-        monte_carlo_tree_search(monte_carlo_tree)
+        for history_node in history:
+            game.move(history_node.move)
 
-    train_model(monte_carlo_tree)
+            game.display()
+
+            if len(history_node.moves) == 0:
+                continue
+
+            (policy, score) = model.forward(game)
+
+            target_policy = torch.zeros(9)
+
+            for move in history_node.moves:
+                target_policy[move.move[1] * 3 + move.move[0]] = move.visits
+
+            target_policy = target_policy / torch.sum(target_policy)
+
+            target_score = torch.tensor(result)
+
+            loss = model.loss(policy, score, target_policy, target_score)
+
+            total_loss += abs(loss.item())
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        for history_node in history:
+            game.undo()
+
+        print(total_loss / len(history))
+
+for i in range(10):
+    train_model(MonteCarloNode(), [])
 
 # x = torch.linspace(-math.pi, math.pi, 2000)
 # y = torch.sin(x)
