@@ -17,11 +17,7 @@ model = ConnectFourModel()
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-inference_time = 0
-
 def monte_carlo_tree_search(node, display = False):
-    global inference_time
-
     if display: game.display()
 
     node.visits += 1
@@ -29,13 +25,7 @@ def monte_carlo_tree_search(node, display = False):
     if node.moves == None:
         valid_moves = game.valid_moves()
 
-        start_time = time.time()
-
         policy, score = model(game)
-
-        end_time = time.time()
-
-        inference_time += end_time - start_time
 
         node.prediction = (policy, score)
 
@@ -89,8 +79,15 @@ def monte_carlo_tree_search(node, display = False):
 def play_game(node, history, display=False):
     if display: game.display()
 
+    start_time = time.time()
+
     for i in range(30):
         monte_carlo_tree_search(node)
+
+    end_time = time.time()
+
+    if display:
+        print(f"Montecarlo took {(end_time-start_time):.4f}")
 
     result = game.result()
 
@@ -160,27 +157,12 @@ def train(result, history, display=False):
 
     print(total_loss / len(history))
 
-# history = []
-# result = play_game(MonteCarloNode(), history, True)
-# train(result, history, True)
+for i in range(1000):
+    history = []
+    result = play_game(MonteCarloNode(), history)
+    train(result, history)
 
-start_time = time.time()
-
-monte_carlo_tree_search(MonteCarloNode())
-
-end_time = time.time()
-
-print(f"Monte carlo search took {(end_time-start_time):.4f} seconds")
-print(f"Inference took {(inference_time):.4f} seconds")
-
-inference_time = 0
-
-# for i in range(1000):
-    # history = []
-    # result = play_game(MonteCarloNode(), history)
-    # train(result, history)
-
-#     if i % 10 == 0:
-#         history = []
-#         result = play_game(MonteCarloNode(), history)
-#         train(result, history, True)
+    if i % 10 == 0:
+        history = []
+        result = play_game(MonteCarloNode(), history)
+        train(result, history, True)
