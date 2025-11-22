@@ -6,6 +6,7 @@ torch.autograd.set_detect_anomaly(True)
 import math
 import random
 from tic_tac_toe import TicTacToeGame
+from connect_four import ConnectFourGame
 from monte_carlo import MonteCarloNode
 from model import TicTacToeModel
 
@@ -146,12 +147,31 @@ def train(result, history, display=False):
 
     print(total_loss / len(history))
 
-for i in range(1000):
-    history = []
-    result = play_game(MonteCarloNode(), history)
-    train(result, history)
+# for i in range(1000):
+#     history = []
+#     result = play_game(MonteCarloNode(), history)
+#     train(result, history)
 
-    if i % 10 == 0:
-        history = []
-        result = play_game(MonteCarloNode(), history)
-        train(result, history, True)
+#     if i % 10 == 0:
+#         history = []
+#         result = play_game(MonteCarloNode(), history)
+#         train(result, history, True)
+
+game = ConnectFourGame()
+game.move(0)
+game.move(1)
+game.move(1)
+game.move(0)
+
+game.move(2)
+game.move(2)
+game.move(2)
+
+game.move(3)
+game.move(3)
+game.move(3)
+game.move(3)
+
+game.display()
+
+print(game.result())
