@@ -5,6 +5,7 @@ torch.autograd.set_detect_anomaly(True)
 
 import math
 import random
+import time
 from connect_four import ConnectFourGame
 from connect_four import ConnectFourModel
 from monte_carlo import MonteCarloNode
@@ -33,7 +34,7 @@ def monte_carlo_tree_search(node, display = False):
             childNode = MonteCarloNode()
             childNode.move = move
             childNode.parent = node
-            childNode.policy_score = policy[move[1] * 3 + move[0]].item()
+            childNode.policy_score = policy[move].item()
 
             node.moves.append(childNode)
 
@@ -74,8 +75,10 @@ def monte_carlo_tree_search(node, display = False):
 
         return result
 
-def play_game(node, history):
-    for i in range(20):
+def play_game(node, history, display=False):
+    if display: game.display()
+
+    for i in range(30):
         monte_carlo_tree_search(node)
 
     result = game.result()
@@ -95,7 +98,7 @@ def play_game(node, history):
 
         game.move(best_move.move)
 
-        result = play_game(best_move, history)
+        result = play_game(best_move, history, display)
 
         game.undo()
 
@@ -123,10 +126,10 @@ def train(result, history, display=False):
 
         (policy, score) = model.forward(game)
 
-        target_policy = torch.zeros(9)
+        target_policy = torch.zeros(7)
 
         for move in history_node.moves:
-            target_policy[move.move[1] * 3 + move.move[0]] = move.visits
+            target_policy[move.move] = move.visits
 
 
         target_policy = target_policy / torch.sum(target_policy)
@@ -146,10 +149,14 @@ def train(result, history, display=False):
 
     print(total_loss / len(history))
 
+history = []
+result = play_game(MonteCarloNode(), history, True)
+train(result, history, True)
+
 # for i in range(1000):
-#     history = []
-#     result = play_game(MonteCarloNode(), history)
-#     train(result, history)
+    # history = []
+    # result = play_game(MonteCarloNode(), history)
+    # train(result, history)
 
 #     if i % 10 == 0:
 #         history = []
