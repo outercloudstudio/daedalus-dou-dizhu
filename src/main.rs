@@ -104,6 +104,10 @@ fn train(
 
         let (policy, score) = model.forward(&game.board_state);
 
+        if display {
+            println!("Score {}", score.double_value(&[]));
+        }
+
         let target_policy = Tensor::zeros(&[7], (Kind::Float, tch::Device::Cpu));
 
         for game_move in history_node.borrow().moves.as_ref().unwrap() {
@@ -139,11 +143,15 @@ fn main() {
     let model = ConnectFourModel::new(&vs.root());
     let mut optimizer = nn::Adam::default().build(&vs, 1e-3).unwrap();
 
-    for i in 0..100 {
+    for i in 0..100000 {
         let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
         let mut history = Vec::new();
 
         let result = play_game(state, &mut game, &model, &mut history, false);
         train(result, &mut game, &model, &mut history, &mut optimizer, i % 10 == 0);
+
+        if i % 100 == 0 {
+            vs.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
+        }
     }
 }

@@ -259,7 +259,7 @@ impl ConnectFourState {
     }
 
     pub fn get_score(&self) -> f64 {
-        let exploration = 1.5f64;
+        let exploration = 0.5f64;
 
         let parent = self.parent.as_ref().unwrap().borrow();
 
