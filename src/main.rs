@@ -1,6 +1,7 @@
 mod connect_four;
 
 use std::cell::RefCell;
+use std::io;
 use std::rc::Rc;
 
 use connect_four::{ConnectFourGame, ConnectFourModel, ConnectFourState};
@@ -139,19 +140,70 @@ fn train(
 fn main() {
     let mut game = ConnectFourGame::new();
 
-    let vs = nn::VarStore::new(Device::Cpu);
+    let mut vs = nn::VarStore::new(Device::Cpu);
     let model = ConnectFourModel::new(&vs.root());
-    let mut optimizer = nn::Adam::default().build(&vs, 1e-3).unwrap();
 
-    for i in 0..100000 {
-        let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
-        let mut history = Vec::new();
+    vs.load("./checkpoints/connect_four_04200.ckpt").unwrap();
 
-        let result = play_game(state, &mut game, &model, &mut history, false);
-        train(result, &mut game, &model, &mut history, &mut optimizer, i % 10 == 0);
+    loop {
+        game.display();
 
-        if i % 100 == 0 {
-            vs.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
+        let result = game.result();
+
+        if result != 0 || game.valid_moves().len() == 0 {
+            println!("Finished game with result {}", result);
+
+            break;
+        }
+
+        if game.perspective == 1 {
+            let mut input = String::new();
+
+            println!("Enter move>");
+            io::stdin().read_line(&mut input).expect("Failed to read line");
+            let move_position: i64 = input.trim().parse().expect("Please enter a valid number");
+
+            game.make_move(move_position);
+        } else {
+            let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
+
+            for _ in 0..30 {
+                mcts_connect_four(state.clone(), &mut game, &model, false);
+            }
+
+            let mut best_move: Option<Rc<RefCell<ConnectFourState>>> = None;
+            let mut best_score = 0f64;
+
+            for game_move in state.borrow().moves.as_ref().unwrap() {
+                let game_move_access = game_move.borrow();
+
+                let score = game_move_access.get_score();
+
+                if best_move.is_none() || score > best_score {
+                    best_move = Some(game_move.clone());
+                    best_score = score;
+                }
+            }
+
+            let (policy, score) = model.forward(&game.board_state);
+
+            println!("Score {}", score.double_value(&[]));
+
+            game.make_move(best_move.as_ref().unwrap().borrow().game_move.unwrap());
         }
     }
+
+    // let mut optimizer = nn::Adam::default().build(&vs, 1e-3).unwrap();
+
+    // for i in 0..100000 {
+    //     let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
+    //     let mut history = Vec::new();
+
+    //     let result = play_game(state, &mut game, &model, &mut history, false);
+    //     train(result, &mut game, &model, &mut history, &mut optimizer, i % 10 == 0);
+
+    //     if i % 100 == 0 {
+    //         vs.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
+    //     }
+    // }
 }
