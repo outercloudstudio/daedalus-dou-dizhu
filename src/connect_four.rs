@@ -1,10 +1,13 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use tch::nn::{Linear, Module, OptimizerConfig, Path};
 use tch::{Device, Kind, Tensor, nn};
 
 pub struct ConnectFourGame {
-    board_state: Tensor,
-    perspective: i64,
-    history: Vec<i64>,
+    pub board_state: Tensor,
+    pub perspective: i64,
+    pub history: Vec<i64>,
 }
 
 impl ConnectFourGame {
@@ -75,13 +78,7 @@ impl ConnectFourGame {
                 let mut found = true;
 
                 for i in 0..3 {
-                    if self
-                        .board_state
-                        .get(start_y)
-                        .get(start_x + 1 + i)
-                        .double_value(&[])
-                        != looking_for
-                    {
+                    if self.board_state.get(start_y).get(start_x + 1 + i).double_value(&[]) != looking_for {
                         found = false;
                         break;
                     }
@@ -104,13 +101,7 @@ impl ConnectFourGame {
                 let mut found = true;
 
                 for i in 0..3 {
-                    if self
-                        .board_state
-                        .get(start_y + 1 + i)
-                        .get(start_x)
-                        .double_value(&[])
-                        != looking_for
-                    {
+                    if self.board_state.get(start_y + 1 + i).get(start_x).double_value(&[]) != looking_for {
                         found = false;
                         break;
                     }
@@ -130,13 +121,7 @@ impl ConnectFourGame {
                     let mut found = true;
 
                     for i in 0..3 {
-                        if self
-                            .board_state
-                            .get(start_y + 1 + i)
-                            .get(start_x + 1 + i)
-                            .double_value(&[])
-                            != looking_for
-                        {
+                        if self.board_state.get(start_y + 1 + i).get(start_x + 1 + i).double_value(&[]) != looking_for {
                             found = false;
                             break;
                         }
@@ -147,23 +132,13 @@ impl ConnectFourGame {
                     }
                 }
 
-                let looking_for = self
-                    .board_state
-                    .get(start_y + 3)
-                    .get(start_x)
-                    .double_value(&[]);
+                let looking_for = self.board_state.get(start_y + 3).get(start_x).double_value(&[]);
 
                 if looking_for != 0.0 {
                     let mut found = true;
 
                     for i in 0..3 {
-                        if self
-                            .board_state
-                            .get(start_y + 2 - i)
-                            .get(start_x + 1 + i)
-                            .double_value(&[])
-                            != looking_for
-                        {
+                        if self.board_state.get(start_y + 2 - i).get(start_x + 1 + i).double_value(&[]) != looking_for {
                             found = false;
                             break;
                         }
@@ -251,17 +226,139 @@ impl ConnectFourModel {
         (policy, score)
     }
 
-    pub fn loss(
-        &self,
-        policy: &Tensor,
-        score: &Tensor,
-        target_policy: &Tensor,
-        target_score: &Tensor,
-    ) -> Tensor {
+    pub fn loss(&self, policy: &Tensor, score: &Tensor, target_policy: &Tensor, target_score: &Tensor) -> Tensor {
         let policy_loss = -(target_policy * policy.log()).sum(Kind::Float);
 
         let value_loss = (score - target_score).pow_tensor_scalar(2);
 
         policy_loss + value_loss
+    }
+}
+
+pub struct ConnectFourState {
+    pub game_move: Option<i64>,
+    pub parent: Option<Rc<RefCell<ConnectFourState>>>,
+
+    pub visits: i64,
+    pub score_total: i64,
+    pub policy: f64,
+
+    pub moves: Option<Vec<Rc<RefCell<ConnectFourState>>>>,
+}
+
+impl ConnectFourState {
+    pub fn new(parent: Option<Rc<RefCell<ConnectFourState>>>, policy: f64) -> ConnectFourState {
+        return ConnectFourState {
+            game_move: None,
+            parent: parent,
+            visits: 0,
+            score_total: 0,
+            policy: policy,
+            moves: None,
+        };
+    }
+
+    pub fn get_score(&self) -> f64 {
+        let exploration = 1.5f64;
+
+        let parent = self.parent.as_ref().unwrap().borrow();
+
+        if self.visits == 0 {
+            return exploration * self.policy * (parent.visits as f64).sqrt() / (1f64 + self.visits as f64);
+        }
+
+        return self.score_total as f64 / self.visits as f64
+            + exploration * self.policy * (parent.visits as f64).sqrt() / (1f64 + self.visits as f64);
+    }
+}
+
+pub fn mcts_connect_four(node: Rc<RefCell<ConnectFourState>>, game: &mut ConnectFourGame, model: &ConnectFourModel, display: bool) -> i64 {
+    if display {
+        game.display();
+    }
+
+    node.borrow_mut().visits += 1;
+
+    if node.borrow().moves.is_none() {
+        let valid_moves = game.valid_moves();
+
+        let (policy, score) = model.forward(&game.board_state);
+
+        let mut moves: Vec<Rc<RefCell<ConnectFourState>>> = Vec::new();
+
+        for valid_move in valid_moves {
+            let mut child = ConnectFourState::new(Some(node.clone()), policy.get(valid_move).double_value(&[]));
+
+            child.game_move = Some(valid_move);
+
+            moves.push(Rc::new(RefCell::new(child)));
+        }
+
+        node.borrow_mut().moves = Some(moves);
+    }
+
+    let result = game.result();
+
+    if result == 0 && node.borrow().moves.as_ref().unwrap().len() > 0 {
+        let mut best_move: Option<Rc<RefCell<ConnectFourState>>> = None;
+        let mut best_score = 0f64;
+
+        for game_move in node.borrow().moves.as_ref().unwrap() {
+            let game_move_access = game_move.borrow();
+
+            let score = game_move_access.get_score();
+
+            if best_move.is_none() || score > best_score {
+                best_move = Some(game_move.clone());
+                best_score = score;
+            }
+
+            if display {
+                if game_move_access.visits > 0 {
+                    println!(
+                        "Move {} {} {} {} {}",
+                        game_move_access.game_move.unwrap(),
+                        (score * 100f64).floor() / 100f64,
+                        ((game_move_access.score_total as f64) / (game_move_access.visits as f64) * 100f64).floor() / 100f64,
+                        game_move_access.visits,
+                        (game_move_access.policy * 100f64).floor() / 100f64
+                    )
+                } else {
+                    println!(
+                        "Move {} {} no visits {} {}",
+                        game_move_access.game_move.unwrap(),
+                        (score * 100f64).floor() / 100f64,
+                        game_move_access.visits,
+                        (game_move_access.policy * 100f64).floor() / 100f64
+                    )
+                }
+            }
+        }
+
+        if display {
+            println!("Exploring {}", best_move.as_ref().unwrap().borrow().game_move.unwrap());
+        }
+
+        game.make_move(best_move.as_ref().unwrap().borrow().game_move.unwrap());
+
+        let result = mcts_connect_four(best_move.unwrap().clone(), game, model, display);
+
+        game.undo_move();
+
+        {
+            node.borrow_mut().score_total += result * -game.perspective;
+        }
+
+        return result;
+    } else {
+        if display {
+            println!("Ended with result! {}", result);
+        }
+
+        {
+            node.borrow_mut().score_total += result * -game.perspective;
+        }
+
+        return result;
     }
 }
