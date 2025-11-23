@@ -1,0 +1,7 @@
+[package]
+name = "alpha-dou-dizhu"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+tch = "0.22.0"
