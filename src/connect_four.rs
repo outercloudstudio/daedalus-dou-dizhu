@@ -217,7 +217,7 @@ impl ConnectFourModel {
 
         // Split into policy (first 7) and score (last 1)
         let policy = value.narrow(0, 0, 7);
-        let score = value.get(7);
+        let score = value.narrow(0, 7, 1);
 
         // Apply softmax to policy and tanh to score
         let policy = policy.softmax(0, Kind::Float);
@@ -283,6 +283,7 @@ pub fn mcts_connect_four(node: Rc<RefCell<ConnectFourState>>, game: &mut Connect
         let valid_moves = game.valid_moves();
 
         let (policy, score) = model.forward(&game);
+        let policy = policy.to_device(Device::Cpu);
 
         let mut moves: Vec<Rc<RefCell<ConnectFourState>>> = Vec::new();
 

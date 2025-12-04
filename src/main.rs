@@ -22,7 +22,7 @@ fn play_game(
         game.display();
     }
 
-    for _ in 0..100 {
+    for _ in 0..300 {
         mcts_connect_four(node.clone(), game, model, false);
     }
 
@@ -104,22 +104,29 @@ fn train(
 
         let (policy, score) = model.forward(&game);
 
-        if display {
-            println!("Score {}", score.double_value(&[]));
-        }
-
-        let target_policy = Tensor::zeros(&[7], (Kind::Float, tch::Device::Cpu));
+        let mut target_policy: [f32; 7] = [0f32; 7];
 
         for game_move in history_node.borrow().moves.as_ref().unwrap() {
-            let _ = target_policy
-                .get(game_move.borrow().game_move.unwrap())
-                .fill_(game_move.borrow().visits);
+            target_policy[game_move.borrow().game_move.unwrap() as usize] = game_move.borrow().visits as f32;
         }
 
+        let target_policy = Tensor::from_slice(&target_policy).to_kind(Kind::Float);
+
         let target_policy = (target_policy.divide(&target_policy.sum(Kind::Float))).to_device(Device::cuda_if_available());
-        let target_score = (Tensor::from((result * game.perspective) as f64)).to_device(Device::cuda_if_available());
+        let target_score = Tensor::from_slice(&[(result * game.perspective) as f32]).to_device(Device::cuda_if_available());
+
+        if display {
+            println!("{}", policy);
+            println!("{}", target_policy);
+            println!("{}", score);
+            println!("{}", target_score);
+        }
 
         let loss = model.loss(&policy, &score, &target_policy, &target_score);
+
+        if display {
+            println!("{}", loss);
+        }
 
         optimizer.zero_grad();
         optimizer.backward_step(&loss);
@@ -269,63 +276,21 @@ impl Participant {
 fn main() {
     let mut var_store = nn::VarStore::new(Device::cuda_if_available());
     let model = ConnectFourModel::new(&var_store.root());
-    // var_store.load("./checkpoints/connect_four_01000.ckpt").unwrap();
 
     let mut optimizer = nn::Sgd::default().build(&var_store, 1e-3).unwrap();
     let mut game = ConnectFourGame::new();
 
-    let mut rng = rand::thread_rng();
-
     for i in 0..3000 {
-        let random_number: i64 = rng.random_range(0..7);
+        println!("Iteration > {}", i);
 
-        game.make_move(random_number);
-        // game.display();
+        let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
+        let mut history = Vec::new();
 
-        let (policy, value) = model.forward(&game);
-
-        let target_policy = Tensor::zeros(&[7], (Kind::Float, tch::Device::Cpu));
-
-        let _ = target_policy.get(random_number).fill_(1);
-
-        let target_policy = (target_policy.divide(&target_policy.sum(Kind::Float))).to_device(Device::cuda_if_available());
-        let target_value = (Tensor::from(
-            (if random_number < 3 {
-                1
-            } else if random_number > 3 {
-                -1
-            } else {
-                0
-            }) as f64,
-        ))
-        .to_device(Device::cuda_if_available());
+        let result = play_game(state, &mut game, &model, &mut history, false);
+        train(result, &mut game, &model, &mut history, &mut optimizer, i % 100 == 0);
 
         if i % 100 == 0 {
-            println!("{}", policy);
-            println!("{}", target_policy);
-            println!("{}", value);
-            println!("{}", target_value);
+            var_store.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
         }
-
-        let loss = model.loss(&policy, &value, &target_policy, &target_value);
-
-        optimizer.zero_grad();
-        optimizer.backward_step(&loss);
-
-        println!("Loss {}", loss.double_value(&[]));
-
-        game.undo_move();
     }
-
-    // for i in 0..3000 {
-    //     let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
-    //     let mut history = Vec::new();
-
-    //     let result = play_game(state, &mut game, &model, &mut history, false);
-    //     train(result, &mut game, &model, &mut history, &mut optimizer, i % 10 == 0);
-
-    //     if i % 100 == 0 {
-    //         var_store.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
-    //     }
-    // }
 }
