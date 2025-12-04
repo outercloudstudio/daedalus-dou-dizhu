@@ -5,7 +5,7 @@ use tch::nn::{Linear, Module, OptimizerConfig, Path};
 use tch::{Device, Kind, Tensor, nn};
 
 pub struct ConnectFourGame {
-    pub board_state: Tensor,
+    pub board_state: [i64; 6 * 7],
     pub perspective: i64,
     pub history: Vec<i64>,
 }
@@ -13,44 +13,45 @@ pub struct ConnectFourGame {
 impl ConnectFourGame {
     pub fn new() -> Self {
         ConnectFourGame {
-            board_state: Tensor::zeros(&[6, 7], (Kind::Float, tch::Device::Cpu)),
+            board_state: [0; 6 * 7],
             perspective: 1,
             history: Vec::new(),
         }
     }
 
+    pub fn position_to_index(&self, x: i64, y: i64) -> usize {
+        return (y * 7 + x) as usize;
+    }
+
     pub fn move_valid(&self, position: i64) -> bool {
-        self.board_state.get(0).get(position).double_value(&[]) == 0.0
+        return self.board_state[self.position_to_index(position, 5)] == 0;
     }
 
     pub fn make_move(&mut self, position: i64) {
-        for i in 0..6 {
-            let row = 5 - i;
-
-            if self.board_state.get(row).get(position).double_value(&[]) == 0.0 {
-                let _ = self.board_state.get(row).get(position).fill_(1.0);
+        for row in 0..6 {
+            if self.board_state[self.position_to_index(position, row)] == 0 {
+                self.board_state[self.position_to_index(position, row)] = self.perspective;
 
                 break;
             }
         }
 
         self.history.push(position);
-        self.board_state *= -1.0;
+
         self.perspective *= -1;
     }
 
     pub fn undo_move(&mut self) {
-        let last_move = self.history.pop().unwrap();
+        let last_move = self.history.pop().expect("There was no move left to undo!");
 
         for i in 0..6 {
-            if self.board_state.get(i).get(last_move).double_value(&[]) != 0.0 {
-                let _ = self.board_state.get(i).get(last_move).fill_(0.0);
+            if self.board_state[self.position_to_index(last_move, 5 - i)] != 0 {
+                self.board_state[self.position_to_index(last_move, 5 - i)] = 0;
 
                 break;
             }
         }
 
-        self.board_state *= -1.0;
         self.perspective *= -1;
     }
 
@@ -69,83 +70,83 @@ impl ConnectFourGame {
     pub fn result(&self) -> i64 {
         for start_y in 0..6 {
             for start_x in 0..4 {
-                let looking_for = self.board_state.get(start_y).get(start_x).double_value(&[]);
+                let looking_for = self.board_state[self.position_to_index(start_x, start_y)];
 
-                if looking_for == 0.0 {
+                if looking_for == 0 {
                     continue;
                 }
 
                 let mut found = true;
 
                 for i in 0..3 {
-                    if self.board_state.get(start_y).get(start_x + 1 + i).double_value(&[]) != looking_for {
+                    if self.board_state[self.position_to_index(start_x + 1 + i, start_y)] != looking_for {
                         found = false;
                         break;
                     }
                 }
 
                 if found {
-                    return (looking_for as i64) * self.perspective;
+                    return looking_for;
                 }
             }
         }
 
         for start_y in 0..3 {
             for start_x in 0..7 {
-                let looking_for = self.board_state.get(start_y).get(start_x).double_value(&[]);
+                let looking_for = self.board_state[self.position_to_index(start_x, start_y)];
 
-                if looking_for == 0.0 {
+                if looking_for == 0 {
                     continue;
                 }
 
                 let mut found = true;
 
                 for i in 0..3 {
-                    if self.board_state.get(start_y + 1 + i).get(start_x).double_value(&[]) != looking_for {
+                    if self.board_state[self.position_to_index(start_x, start_y + 1 + i)] != looking_for {
                         found = false;
                         break;
                     }
                 }
 
                 if found {
-                    return (looking_for as i64) * self.perspective;
+                    return looking_for;
                 }
             }
         }
 
         for start_y in 0..3 {
             for start_x in 0..4 {
-                let looking_for = self.board_state.get(start_y).get(start_x).double_value(&[]);
+                let looking_for = self.board_state[self.position_to_index(start_x, start_y)];
 
-                if looking_for != 0.0 {
+                if looking_for != 0 {
                     let mut found = true;
 
                     for i in 0..3 {
-                        if self.board_state.get(start_y + 1 + i).get(start_x + 1 + i).double_value(&[]) != looking_for {
+                        if self.board_state[self.position_to_index(start_x + 1 + i, start_y + 1 + i)] != looking_for {
                             found = false;
                             break;
                         }
                     }
 
                     if found {
-                        return (looking_for as i64) * self.perspective;
+                        return looking_for;
                     }
                 }
 
-                let looking_for = self.board_state.get(start_y + 3).get(start_x).double_value(&[]);
+                let looking_for = self.board_state[self.position_to_index(start_x, start_y + 3)];
 
-                if looking_for != 0.0 {
+                if looking_for != 0 {
                     let mut found = true;
 
                     for i in 0..3 {
-                        if self.board_state.get(start_y + 2 - i).get(start_x + 1 + i).double_value(&[]) != looking_for {
+                        if self.board_state[self.position_to_index(start_x + 1 + i, start_y + 2 - i)] != looking_for {
                             found = false;
                             break;
                         }
                     }
 
                     if found {
-                        return (looking_for as i64) * self.perspective;
+                        return looking_for;
                     }
                 }
             }
@@ -157,17 +158,17 @@ impl ConnectFourGame {
     pub fn display(&self) {
         println!("-------");
 
-        for y in 0..6 {
+        for i in 0..6 {
             let mut line = String::new();
 
             for x in 0..7 {
-                let value = self.board_state.get(y).get(x).double_value(&[]);
+                let value = self.board_state[self.position_to_index(x, 5 - i)];
 
-                if value == 0.0 {
+                if value == 0 {
                     line.push(' ');
-                } else if (value as i64) * self.perspective == 1 {
+                } else if value == 1 {
                     line.push('O');
-                } else if (value as i64) * self.perspective == -1 {
+                } else if value == -1 {
                     line.push('X');
                 }
             }
@@ -176,10 +177,6 @@ impl ConnectFourGame {
         }
 
         println!("-------");
-    }
-
-    pub fn board_state(&self) -> &Tensor {
-        &self.board_state
     }
 }
 
@@ -205,9 +202,12 @@ impl ConnectFourModel {
         }
     }
 
-    pub fn forward(&self, board_state: &Tensor) -> (Tensor, Tensor) {
+    pub fn forward(&self, game: &ConnectFourGame) -> (Tensor, Tensor) {
         // Flatten and convert to float
-        let mut value = board_state.flatten(0, -1).to_kind(Kind::Float);
+        let mut value = (Tensor::from_slice(&game.board_state) * game.perspective)
+            .to_kind(Kind::Float)
+            .set_requires_grad(true)
+            .to_device(Device::cuda_if_available());
 
         // Forward pass through layers with ReLU activations
         value = value.apply(&self.layer1).relu();
@@ -282,7 +282,7 @@ pub fn mcts_connect_four(node: Rc<RefCell<ConnectFourState>>, game: &mut Connect
     if node.borrow().moves.is_none() {
         let valid_moves = game.valid_moves();
 
-        let (policy, score) = model.forward(&game.board_state);
+        let (policy, score) = model.forward(&game);
 
         let mut moves: Vec<Rc<RefCell<ConnectFourState>>> = Vec::new();
 

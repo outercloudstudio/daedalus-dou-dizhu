@@ -1,5 +1,6 @@
 mod connect_four;
 
+use rand::Rng;
 use std::cell::RefCell;
 use std::io;
 use std::rc::Rc;
@@ -21,7 +22,7 @@ fn play_game(
         game.display();
     }
 
-    for _ in 0..30 {
+    for _ in 0..100 {
         mcts_connect_four(node.clone(), game, model, false);
     }
 
@@ -64,8 +65,6 @@ fn train(
     optimizer: &mut Optimizer,
     display: bool,
 ) {
-    let mut total_loss = 0f64;
-
     for history_node in history.iter() {
         if history_node.borrow().game_move.is_some() {
             game.make_move(history_node.borrow().game_move.unwrap());
@@ -103,7 +102,7 @@ fn train(
             continue;
         }
 
-        let (policy, score) = model.forward(&game.board_state);
+        let (policy, score) = model.forward(&game);
 
         if display {
             println!("Score {}", score.double_value(&[]));
@@ -117,12 +116,10 @@ fn train(
                 .fill_(game_move.borrow().visits);
         }
 
-        let target_policy = &target_policy / target_policy.sum(Kind::Float);
-        let target_score = Tensor::from((result * game.perspective) as f64);
+        let target_policy = (target_policy.divide(&target_policy.sum(Kind::Float))).to_device(Device::cuda_if_available());
+        let target_score = (Tensor::from((result * game.perspective) as f64)).to_device(Device::cuda_if_available());
 
         let loss = model.loss(&policy, &score, &target_policy, &target_score);
-
-        total_loss += loss.double_value(&[]).abs();
 
         optimizer.zero_grad();
         optimizer.backward_step(&loss);
@@ -133,8 +130,6 @@ fn train(
             game.undo_move();
         }
     }
-
-    println!("Loss {}", total_loss / history.len() as f64);
 }
 
 fn human_vs_model(model: &ConnectFourModel) {
@@ -151,7 +146,7 @@ fn human_vs_model(model: &ConnectFourModel) {
             break;
         }
 
-        if game.perspective == 1 {
+        if game.perspective == -1 {
             let mut input = String::new();
 
             println!("Enter move>");
@@ -162,7 +157,7 @@ fn human_vs_model(model: &ConnectFourModel) {
         } else {
             let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
 
-            for _ in 0..30 {
+            for _ in 0..100 {
                 mcts_connect_four(state.clone(), &mut game, &model, false);
             }
 
@@ -200,7 +195,7 @@ fn human_vs_model(model: &ConnectFourModel) {
                 }
             }
 
-            let (policy, score) = model.forward(&game.board_state);
+            let (policy, score) = model.forward(&game);
 
             println!("Score {}", score.double_value(&[]));
 
@@ -227,7 +222,7 @@ fn model_vs_model(model_a: &ConnectFourModel, model_b: &ConnectFourModel) {
 
         let perspective = game.perspective;
 
-        for _ in 0..30 {
+        for _ in 0..100 {
             mcts_connect_four(state.clone(), &mut game, if perspective == 1 { model_a } else { model_b }, false);
         }
 
@@ -245,7 +240,7 @@ fn model_vs_model(model_a: &ConnectFourModel, model_b: &ConnectFourModel) {
             }
         }
 
-        let (policy, score) = if game.perspective == 1 { model_a } else { model_b }.forward(&game.board_state);
+        let (policy, score) = if game.perspective == 1 { model_a } else { model_b }.forward(&game);
 
         println!("Score {}", score.double_value(&[]));
 
@@ -271,57 +266,66 @@ impl Participant {
     }
 }
 
-fn round_robbin(participants: &mut Vec<Participant>) {
-    for i in 0..(participants.len() - 1) {}
-}
-
 fn main() {
-    // let mut participants: Vec<Participant> = Vec::new();
+    let mut var_store = nn::VarStore::new(Device::cuda_if_available());
+    let model = ConnectFourModel::new(&var_store.root());
+    // var_store.load("./checkpoints/connect_four_01000.ckpt").unwrap();
 
-    let mut vs_04200 = nn::VarStore::new(Device::Cpu);
-    let model_04200 = ConnectFourModel::new(&vs_04200.root());
-    vs_04200.load("./checkpoints/connect_four_04200.ckpt").unwrap();
-
-    // participants.push(Participant::new(String::from("04200"), vs_04200, model_04200));
-
-    // let mut vs_00000 = nn::VarStore::new(Device::Cpu);
-    // let model_00000 = ConnectFourModel::new(&vs_00000.root());
-    // vs_00000.load("./checkpoints/connect_four_00000.ckpt").unwrap();
-
-    // participants.push(Participant::new(String::from("00000"), vs_00000, model_00000));
-
-    // let mut vs_01000 = nn::VarStore::new(Device::Cpu);
-    // let model_01000 = ConnectFourModel::new(&vs_01000.root());
-    // vs_01000.load("./checkpoints/connect_four_01000.ckpt").unwrap();
-
-    // participants.push(Participant::new(String::from("01000"), vs_01000, model_01000));
-
-    // let mut vs_02000 = nn::VarStore::new(Device::Cpu);
-    // let model_02000 = ConnectFourModel::new(&vs_02000.root());
-    // vs_02000.load("./checkpoints/connect_four_02000.ckpt").unwrap();
-
-    // participants.push(Participant::new(String::from("02000"), vs_02000, model_02000));
-
-    // let mut vs_03000 = nn::VarStore::new(Device::Cpu);
-    // let model_03000 = ConnectFourModel::new(&vs_03000.root());
-    // vs_03000.load("./checkpoints/connect_four_03000.ckpt").unwrap();
-
-    // participants.push(Participant::new(String::from("03000"), vs_03000, model_03000));
-
-    // human_vs_model(&model_04200);
-
-    let mut optimizer = nn::Adam::default().build(&vs_04200, 1e-3).unwrap();
+    let mut optimizer = nn::Sgd::default().build(&var_store, 1e-3).unwrap();
     let mut game = ConnectFourGame::new();
 
-    for i in 4200..100000 {
-        let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
-        let mut history = Vec::new();
+    let mut rng = rand::thread_rng();
 
-        let result = play_game(state, &mut game, &model_04200, &mut history, false);
-        train(result, &mut game, &model_04200, &mut history, &mut optimizer, i % 10 == 0);
+    for i in 0..3000 {
+        let random_number: i64 = rng.random_range(0..7);
 
-        if i % 100 == 0 && i != 4200 {
-            vs_04200.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
+        game.make_move(random_number);
+        // game.display();
+
+        let (policy, value) = model.forward(&game);
+
+        let target_policy = Tensor::zeros(&[7], (Kind::Float, tch::Device::Cpu));
+
+        let _ = target_policy.get(random_number).fill_(1);
+
+        let target_policy = (target_policy.divide(&target_policy.sum(Kind::Float))).to_device(Device::cuda_if_available());
+        let target_value = (Tensor::from(
+            (if random_number < 3 {
+                1
+            } else if random_number > 3 {
+                -1
+            } else {
+                0
+            }) as f64,
+        ))
+        .to_device(Device::cuda_if_available());
+
+        if i % 100 == 0 {
+            println!("{}", policy);
+            println!("{}", target_policy);
+            println!("{}", value);
+            println!("{}", target_value);
         }
+
+        let loss = model.loss(&policy, &value, &target_policy, &target_value);
+
+        optimizer.zero_grad();
+        optimizer.backward_step(&loss);
+
+        println!("Loss {}", loss.double_value(&[]));
+
+        game.undo_move();
     }
+
+    // for i in 0..3000 {
+    //     let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
+    //     let mut history = Vec::new();
+
+    //     let result = play_game(state, &mut game, &model, &mut history, false);
+    //     train(result, &mut game, &model, &mut history, &mut optimizer, i % 10 == 0);
+
+    //     if i % 100 == 0 {
+    //         var_store.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
+    //     }
+    // }
 }
