@@ -1,6 +1,6 @@
 mod connect_four;
 
-use rand::Rng;
+use rand::{Rng, random};
 use std::cell::RefCell;
 use std::io;
 use std::rc::Rc;
@@ -211,8 +211,15 @@ fn human_vs_model(model: &ConnectFourModel) {
     }
 }
 
-fn model_vs_model(model_a: &ConnectFourModel, model_b: &ConnectFourModel, display: bool) -> i64 {
+fn model_vs_model(model_a: &ConnectFourModel, model_b: &ConnectFourModel, display: bool, random_start: bool) -> i64 {
     let mut game = ConnectFourGame::new();
+
+    if random_start {
+        let mut rng = rand::rng();
+
+        game.make_move(rng.random_range(0..7));
+        game.make_move(rng.random_range(0..7));
+    }
 
     loop {
         if display {
@@ -311,7 +318,7 @@ fn main() {
             participant_a.name, participant_a.elo, participant_b.name, participant_b.elo
         );
 
-        let result = model_vs_model(&participant_a.model, &participant_b.model, true);
+        let result = model_vs_model(&participant_a.model, &participant_b.model, true, true);
 
         let p1 = 1.0f64 / (1.0f64 + 10.0f64.powf((participant_b.elo - participant_a.elo) / 400.0f64));
         let p2 = 1.0f64 / (1.0f64 + 10.0f64.powf((participant_a.elo - participant_b.elo) / 400.0f64));
