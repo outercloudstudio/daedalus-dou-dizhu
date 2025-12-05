@@ -287,79 +287,84 @@ impl Participant {
 }
 
 fn main() {
-    let mut participants: Vec<Participant> = Vec::new();
+    // let mut participants: Vec<Participant> = Vec::new();
 
-    for checkpoint in [0, 500, 1500, 2900] {
-        let mut var_store = nn::VarStore::new(Device::cuda_if_available());
-        var_store
-            .load(format!("./checkpoints/connect_four_{:05}.ckpt", checkpoint))
-            .unwrap();
+    // for checkpoint in [0, 500, 1500, 2900] {
+    //     let mut var_store = nn::VarStore::new(Device::cuda_if_available());
+    //     var_store
+    //         .load(format!("./checkpoints/connect_four_{:05}.ckpt", checkpoint))
+    //         .unwrap();
 
-        let model = ConnectFourModel::new(&var_store.root());
+    //     let model = ConnectFourModel::new(&var_store.root());
 
-        participants.push(Participant::new(format!("Model {:05}", checkpoint), var_store, model));
-    }
+    //     participants.push(Participant::new(format!("Model {:05}", checkpoint), var_store, model));
+    // }
 
-    let mut rng = rand::rng();
-
-    for i in 0..3000 {
-        let a = rng.random_range(0..participants.len());
-
-        let mut b = rng.random_range(0..(participants.len() - 1));
-        if b == a {
-            b = participants.len() - 1
-        }
-
-        let participant_a = &participants[a as usize];
-        let participant_b = &participants[b as usize];
-
-        println!(
-            "Playing {} ({}) vs {} ({})",
-            participant_a.name, participant_a.elo, participant_b.name, participant_b.elo
-        );
-
-        let result = model_vs_model(&participant_a.model, &participant_b.model, true, true);
-
-        let p1 = 1.0f64 / (1.0f64 + 10.0f64.powf((participant_b.elo - participant_a.elo) / 400.0f64));
-        let p2 = 1.0f64 / (1.0f64 + 10.0f64.powf((participant_a.elo - participant_b.elo) / 400.0f64));
-
-        participants[a as usize].elo += 30.0f64 * (result as f64 / 2.0f64 + 0.5f64 - p1);
-        participants[b as usize].elo += 30.0f64 * (1.0f64 - (result as f64 / 2.0f64 + 0.5f64) - p2);
-
-        println!(
-            "Result {} - {} ({}) vs {} ({})",
-            result,
-            participants[a as usize].name,
-            participants[a as usize].elo,
-            participants[b as usize].name,
-            participants[b as usize].elo
-        );
-
-        if i % 10 == 0 {
-            println!("Standings:");
-
-            participants.sort_by(|a, b| a.elo.partial_cmp(&b.elo).unwrap());
-
-            for participant in &participants {
-                println!("{} ({})", participant.name, participant.elo);
-            }
-        }
-    }
-
-    // let mut optimizer = nn::Sgd::default().build(&var_store, 1e-3).unwrap();
-    // let mut game = ConnectFourGame::new();
+    // let mut rng = rand::rng();
 
     // for i in 0..3000 {
-    //     println!("Iteration > {}", i);
+    //     let a = rng.random_range(0..participants.len());
 
-    //     let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
-    //     let mut history = Vec::new();
+    //     let mut b = rng.random_range(0..(participants.len() - 1));
+    //     if b == a {
+    //         b = participants.len() - 1
+    //     }
 
-    //     let result = play_game(state, &mut game, &model, &mut history, false);
-    //     train(result, &mut game, &model, &mut history, &mut optimizer, i % 100 == 0);
+    //     let participant_a = &participants[a as usize];
+    //     let participant_b = &participants[b as usize];
 
-    //     if i % 100 == 0 {
-    //         var_store.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
+    //     println!(
+    //         "Playing {} ({}) vs {} ({})",
+    //         participant_a.name, participant_a.elo, participant_b.name, participant_b.elo
+    //     );
+
+    //     let result = model_vs_model(&participant_a.model, &participant_b.model, true, true);
+
+    //     let p1 = 1.0f64 / (1.0f64 + 10.0f64.powf((participant_b.elo - participant_a.elo) / 400.0f64));
+    //     let p2 = 1.0f64 / (1.0f64 + 10.0f64.powf((participant_a.elo - participant_b.elo) / 400.0f64));
+
+    //     participants[a as usize].elo += 30.0f64 * (result as f64 / 2.0f64 + 0.5f64 - p1);
+    //     participants[b as usize].elo += 30.0f64 * (1.0f64 - (result as f64 / 2.0f64 + 0.5f64) - p2);
+
+    //     println!(
+    //         "Result {} - {} ({}) vs {} ({})",
+    //         result,
+    //         participants[a as usize].name,
+    //         participants[a as usize].elo,
+    //         participants[b as usize].name,
+    //         participants[b as usize].elo
+    //     );
+
+    //     if i % 10 == 0 {
+    //         println!("Standings:");
+
+    //         participants.sort_by(|a, b| a.elo.partial_cmp(&b.elo).unwrap());
+
+    //         for participant in &participants {
+    //             println!("{} ({})", participant.name, participant.elo);
+    //         }
     //     }
     // }
+
+    let mut var_store = nn::VarStore::new(Device::cuda_if_available());
+    var_store.load("./checkpoints/connect_four_02900.ckpt").unwrap();
+
+    let model = ConnectFourModel::new(&var_store.root());
+
+    let mut optimizer = nn::AdamW::default().build(&var_store, 1e-3).unwrap();
+    let mut game = ConnectFourGame::new();
+
+    for i in 2900..30000 {
+        println!("Iteration > {}", i);
+
+        let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
+        let mut history = Vec::new();
+
+        let result = play_game(state, &mut game, &model, &mut history, false);
+        train(result, &mut game, &model, &mut history, &mut optimizer, i % 100 == 0);
+
+        if i % 100 == 0 {
+            var_store.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
+        }
+    }
 }
