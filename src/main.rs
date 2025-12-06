@@ -268,6 +268,69 @@ fn model_vs_model(model_a: &ConnectFourModel, model_b: &ConnectFourModel, displa
     }
 }
 
+fn model_vs_model_policy(model_a: &ConnectFourModel, model_b: &ConnectFourModel, display: bool, random_start: bool) -> i64 {
+    let mut game = ConnectFourGame::new();
+
+    if random_start {
+        let mut rng = rand::rng();
+
+        game.make_move(rng.random_range(0..7));
+        game.make_move(rng.random_range(0..7));
+    }
+
+    loop {
+        if display {
+            game.display();
+        }
+
+        let result = game.result();
+
+        if result != 0 || game.valid_moves().len() == 0 {
+            if display {
+                println!("Finished game with result {}", result);
+            }
+
+            return result;
+        }
+
+        let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
+
+        let perspective = game.perspective;
+
+        mcts_connect_four(state.clone(), &mut game, if perspective == 1 { model_a } else { model_b }, false);
+
+        let mut best_move: Option<Rc<RefCell<ConnectFourState>>> = None;
+        let mut best_policy = 0f64;
+
+        for game_move in state.borrow().moves.as_ref().unwrap() {
+            let game_move_access = game_move.borrow();
+
+            let policy = game_move_access.policy;
+
+            if display {
+                println!(
+                    "Move {} - {}",
+                    game_move_access.game_move.unwrap(),
+                    (policy * 100f64).floor() / 100f64
+                );
+            }
+
+            if best_move.is_none() || policy > best_policy {
+                best_move = Some(game_move.clone());
+                best_policy = policy;
+            }
+        }
+
+        let (policy, score) = if game.perspective == 1 { model_a } else { model_b }.forward(&game);
+
+        if display {
+            println!("Score {}", score.double_value(&[]));
+        }
+
+        game.make_move(best_move.as_ref().unwrap().borrow().game_move.unwrap());
+    }
+}
+
 struct Participant {
     name: String,
     vs: nn::VarStore,
@@ -287,9 +350,30 @@ impl Participant {
 }
 
 fn main() {
+    // let mut var_store_04300 = nn::VarStore::new(Device::cuda_if_available());
+    // var_store_04300.load("./checkpoints/connect_four_04300.ckpt").unwrap();
+
+    // let model_04300 = ConnectFourModel::new(&var_store_04300.root());
+
+    // let mut var_store_08400 = nn::VarStore::new(Device::cuda_if_available());
+    // var_store_08400.load("./checkpoints/connect_four_08400.ckpt").unwrap();
+
+    // let model_08400 = ConnectFourModel::new(&var_store_08400.root());
+
+    // let mut total = 0;
+
+    // for i in 0..1000 {
+    //     total += model_vs_model_policy(&model_08400, &model_04300, false, true);
+    //     println!("{} {}", total, i)
+    // }
+
+    // println!("{}", total as f64 / 1000f64)
+
+    // human_vs_model(&model_08400);
+
     // let mut participants: Vec<Participant> = Vec::new();
 
-    // for checkpoint in [0, 500, 1500, 2900] {
+    // for checkpoint in [0, 1500, 2900, 4300] {
     //     let mut var_store = nn::VarStore::new(Device::cuda_if_available());
     //     var_store
     //         .load(format!("./checkpoints/connect_four_{:05}.ckpt", checkpoint))
@@ -347,14 +431,14 @@ fn main() {
     // }
 
     let mut var_store = nn::VarStore::new(Device::cuda_if_available());
-    var_store.load("./checkpoints/connect_four_02900.ckpt").unwrap();
+    var_store.load("./checkpoints/connect_four_04300.ckpt").unwrap();
 
     let model = ConnectFourModel::new(&var_store.root());
 
     let mut optimizer = nn::AdamW::default().build(&var_store, 1e-3).unwrap();
     let mut game = ConnectFourGame::new();
 
-    for i in 2900..30000 {
+    for i in 4300..30000 {
         println!("Iteration > {}", i);
 
         let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
