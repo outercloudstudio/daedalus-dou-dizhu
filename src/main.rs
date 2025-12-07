@@ -350,25 +350,26 @@ impl Participant {
 }
 
 fn main() {
-    // let mut var_store_04300 = nn::VarStore::new(Device::cuda_if_available());
-    // var_store_04300.load("./checkpoints/connect_four_04300.ckpt").unwrap();
+    let mut var_store_00000 = nn::VarStore::new(Device::cuda_if_available());
+    var_store_00000.load("./checkpoints/connect_four_00000.ckpt").unwrap();
 
-    // let model_04300 = ConnectFourModel::new(&var_store_04300.root());
+    let model_00000 = ConnectFourModel::new(&var_store_00000.root());
 
-    // let mut var_store_08400 = nn::VarStore::new(Device::cuda_if_available());
-    // var_store_08400.load("./checkpoints/connect_four_08400.ckpt").unwrap();
+    let mut var_store_12400 = nn::VarStore::new(Device::cuda_if_available());
+    var_store_12400.load("./checkpoints/connect_four_12400.ckpt").unwrap();
 
-    // let model_08400 = ConnectFourModel::new(&var_store_08400.root());
+    let model_12400 = ConnectFourModel::new(&var_store_12400.root());
 
     // let mut total = 0;
 
     // for i in 0..1000 {
-    //     total += model_vs_model_policy(&model_08400, &model_04300, false, true);
+    //     total += model_vs_model_policy(&model_12400, &model_00000, false, true);
     //     println!("{} {}", total, i)
     // }
 
-    // println!("{}", total as f64 / 1000f64)
+    // println!("{}", total as f64 / 1000f64);
 
+    model_vs_model(&model_12400, &model_00000, true, true);
     // human_vs_model(&model_08400);
 
     // let mut participants: Vec<Participant> = Vec::new();
@@ -430,25 +431,25 @@ fn main() {
     //     }
     // }
 
-    let mut var_store = nn::VarStore::new(Device::cuda_if_available());
-    var_store.load("./checkpoints/connect_four_04300.ckpt").unwrap();
+    // let mut var_store = nn::VarStore::new(Device::cuda_if_available());
+    // var_store.load("./checkpoints/connect_four_08400.ckpt").unwrap();
 
-    let model = ConnectFourModel::new(&var_store.root());
+    // let model = ConnectFourModel::new(&var_store.root());
 
-    let mut optimizer = nn::AdamW::default().build(&var_store, 1e-3).unwrap();
-    let mut game = ConnectFourGame::new();
+    // let mut optimizer = nn::AdamW::default().build(&var_store, 1e-3).unwrap();
+    // let mut game = ConnectFourGame::new();
 
-    for i in 4300..30000 {
-        println!("Iteration > {}", i);
+    // for i in 8400..30000 {
+    //     println!("Iteration > {}", i);
 
-        let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
-        let mut history = Vec::new();
+    //     let state = Rc::new(RefCell::new(ConnectFourState::new(None, 0f64)));
+    //     let mut history = Vec::new();
 
-        let result = play_game(state, &mut game, &model, &mut history, false);
-        train(result, &mut game, &model, &mut history, &mut optimizer, i % 100 == 0);
+    //     let result = play_game(state, &mut game, &model, &mut history, false);
+    //     train(result, &mut game, &model, &mut history, &mut optimizer, i % 100 == 0);
 
-        if i % 100 == 0 {
-            var_store.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
-        }
-    }
+    //     if i % 100 == 0 {
+    //         var_store.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
+    //     }
+    // }
 }
