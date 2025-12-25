@@ -180,6 +180,119 @@ impl ConnectFourGame {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::connect_four::ConnectFourGame;
+
+    #[test]
+    fn test_results() {
+        let mut game = ConnectFourGame::new();
+        game.make_move(0);
+        game.make_move(1);
+
+        assert_eq!(game.result(), 0);
+        
+        for _ in 0..2 { 
+            game.make_move(0);
+            game.make_move(1);
+        }
+        
+        assert_eq!(game.result(), 0);
+
+        game.make_move(0);
+        
+        assert_eq!(game.result(), 1);
+
+        
+
+
+        game = ConnectFourGame::new();
+        game.make_move(0);
+        game.make_move(1);
+
+        assert_eq!(game.result(), 0);
+        
+        for _ in 0..2 { 
+            game.make_move(0);
+            game.make_move(1);
+        }
+        
+        assert_eq!(game.result(), 0);
+        
+        game.make_move(2);
+
+        assert_eq!(game.result(), 0);
+        
+        game.make_move(1);
+        
+        assert_eq!(game.result(), -1);
+
+
+
+
+        game = ConnectFourGame::new();
+        game.make_move(0);
+        game.make_move(1);
+        
+        assert_eq!(game.result(), 0);
+
+        game.make_move(1);
+        game.make_move(2);
+
+        assert_eq!(game.result(), 0);
+
+        game.make_move(3);
+        game.make_move(2);
+
+        assert_eq!(game.result(), 0);
+        
+        game.make_move(2);
+        game.make_move(3);
+
+        assert_eq!(game.result(), 0);
+
+        game.make_move(4);
+        game.make_move(3);
+
+        assert_eq!(game.result(), 0);
+
+        game.make_move(3);
+
+        assert_eq!(game.result(), 1);
+
+        
+
+
+        game = ConnectFourGame::new();
+        game.make_move(0);
+        game.make_move(0);
+        game.make_move(0);
+        game.make_move(0);
+
+        assert_eq!(game.result(), 0);
+
+        game.make_move(1);
+        game.make_move(1);
+
+        assert_eq!(game.result(), 0);
+
+        game.make_move(2);
+        game.make_move(1);
+
+        assert_eq!(game.result(), 0);
+
+        game.make_move(0);
+        game.make_move(2);
+
+        assert_eq!(game.result(), 0);
+
+        game.make_move(1);
+        game.make_move(3);
+
+        assert_eq!(game.result(), -1);
+    }
+}
+
 pub struct ConnectFourModel {
     layer1: Linear,
     layer2: Linear,
