@@ -260,7 +260,7 @@ mod tests {
 
         assert_eq!(game.result(), 1);
 
-        
+
 
 
         game = ConnectFourGame::new();
@@ -294,45 +294,37 @@ mod tests {
 }
 
 pub struct ConnectFourModel {
-    layer1: Linear,
-    layer2: Linear,
-    layer3: Linear,
-    layer4: Linear,
+    input_layer: Linear,
+    hidden_layer: Linear,
+    output_layer: Linear,
 }
 
 impl ConnectFourModel {
     pub fn new(vs: &Path) -> Self {
-        let layer1 = nn::linear(vs / "layer1", 6 * 7, 200, Default::default());
-        let layer2 = nn::linear(vs / "layer2", 200, 200, Default::default());
-        let layer3 = nn::linear(vs / "layer3", 200, 200, Default::default());
-        let layer4 = nn::linear(vs / "layer4", 200, 7 + 1, Default::default());
+        let input_layer = nn::linear(vs / "input_layer", 6 * 7, 100, Default::default());
+        let hidden_layer = nn::linear(vs / "hidden_layer", 100, 100, Default::default());
+        let output_layer = nn::linear(vs / "output_layer", 100, 7 + 1, Default::default());
 
         ConnectFourModel {
-            layer1,
-            layer2,
-            layer3,
-            layer4,
+            input_layer,
+            hidden_layer,
+            output_layer,
         }
     }
 
     pub fn forward(&self, game: &ConnectFourGame) -> (Tensor, Tensor) {
-        // Flatten and convert to float
         let mut value = (Tensor::from_slice(&game.board_state) * game.perspective)
             .to_kind(Kind::Float)
             .set_requires_grad(true)
             .to_device(Device::cuda_if_available());
 
-        // Forward pass through layers with ReLU activations
-        value = value.apply(&self.layer1).relu();
-        value = value.apply(&self.layer2).relu();
-        value = value.apply(&self.layer3).relu();
-        value = value.apply(&self.layer4);
+        value = value.apply(&self.input_layer).relu();
+        value = value.apply(&self.hidden_layer).relu();
+        value = value.apply(&self.output_layer);
 
-        // Split into policy (first 7) and score (last 1)
         let policy = value.narrow(0, 0, 7);
         let score = value.narrow(0, 7, 1);
 
-        // Apply softmax to policy and tanh to score
         let policy = policy.softmax(0, Kind::Float);
         let score = score.tanh();
 
@@ -340,6 +332,10 @@ impl ConnectFourModel {
     }
 
     pub fn loss(&self, policy: &Tensor, score: &Tensor, target_policy: &Tensor, target_score: &Tensor) -> Tensor {
+        println!("Log > {}", policy.log());
+        println!("Difference > {}", target_policy * policy.log());
+        println!("Neg Sum > {}", -(target_policy * policy.log()).sum(Kind::Float));
+
         let policy_loss = -(target_policy * policy.log()).sum(Kind::Float);
 
         let value_loss = (score - target_score).pow_tensor_scalar(2);

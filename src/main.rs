@@ -350,87 +350,6 @@ impl Participant {
 }
 
 fn main() {
-    let mut var_store_00000 = nn::VarStore::new(Device::cuda_if_available());
-    var_store_00000.load("./checkpoints/connect_four_00000.ckpt").unwrap();
-
-    let model_00000 = ConnectFourModel::new(&var_store_00000.root());
-
-    let mut var_store_12400 = nn::VarStore::new(Device::cuda_if_available());
-    var_store_12400.load("./checkpoints/connect_four_12400.ckpt").unwrap();
-
-    let model_12400 = ConnectFourModel::new(&var_store_12400.root());
-
-    // let mut total = 0;
-
-    // for i in 0..1000 {
-    //     total += model_vs_model_policy(&model_12400, &model_00000, false, true);
-    //     println!("{} {}", total, i)
-    // }
-
-    // println!("{}", total as f64 / 1000f64);
-
-    model_vs_model(&model_12400, &model_00000, true, true);
-    // human_vs_model(&model_08400);
-
-    // let mut participants: Vec<Participant> = Vec::new();
-
-    // for checkpoint in [0, 1500, 2900, 4300] {
-    //     let mut var_store = nn::VarStore::new(Device::cuda_if_available());
-    //     var_store
-    //         .load(format!("./checkpoints/connect_four_{:05}.ckpt", checkpoint))
-    //         .unwrap();
-
-    //     let model = ConnectFourModel::new(&var_store.root());
-
-    //     participants.push(Participant::new(format!("Model {:05}", checkpoint), var_store, model));
-    // }
-
-    // let mut rng = rand::rng();
-
-    // for i in 0..3000 {
-    //     let a = rng.random_range(0..participants.len());
-
-    //     let mut b = rng.random_range(0..(participants.len() - 1));
-    //     if b == a {
-    //         b = participants.len() - 1
-    //     }
-
-    //     let participant_a = &participants[a as usize];
-    //     let participant_b = &participants[b as usize];
-
-    //     println!(
-    //         "Playing {} ({}) vs {} ({})",
-    //         participant_a.name, participant_a.elo, participant_b.name, participant_b.elo
-    //     );
-
-    //     let result = model_vs_model(&participant_a.model, &participant_b.model, true, true);
-
-    //     let p1 = 1.0f64 / (1.0f64 + 10.0f64.powf((participant_b.elo - participant_a.elo) / 400.0f64));
-    //     let p2 = 1.0f64 / (1.0f64 + 10.0f64.powf((participant_a.elo - participant_b.elo) / 400.0f64));
-
-    //     participants[a as usize].elo += 30.0f64 * (result as f64 / 2.0f64 + 0.5f64 - p1);
-    //     participants[b as usize].elo += 30.0f64 * (1.0f64 - (result as f64 / 2.0f64 + 0.5f64) - p2);
-
-    //     println!(
-    //         "Result {} - {} ({}) vs {} ({})",
-    //         result,
-    //         participants[a as usize].name,
-    //         participants[a as usize].elo,
-    //         participants[b as usize].name,
-    //         participants[b as usize].elo
-    //     );
-
-    //     if i % 10 == 0 {
-    //         println!("Standings:");
-
-    //         participants.sort_by(|a, b| a.elo.partial_cmp(&b.elo).unwrap());
-
-    //         for participant in &participants {
-    //             println!("{} ({})", participant.name, participant.elo);
-    //         }
-    //     }
-    // }
-
     // let mut var_store = nn::VarStore::new(Device::cuda_if_available());
     // var_store.load("./checkpoints/connect_four_08400.ckpt").unwrap();
 
@@ -452,4 +371,48 @@ fn main() {
     //         var_store.save(format!("./checkpoints/connect_four_{:05}.ckpt", i)).unwrap();
     //     }
     // }
+
+    let var_store = nn::VarStore::new(Device::cuda_if_available());
+
+    let model = ConnectFourModel::new(&var_store.root());
+
+    let mut optimizer = nn::AdamW::default().build(&var_store, 1e-3).unwrap();
+
+    let mut rng = rand::rng();
+
+    for i in 0..1000 {
+        println!("\n\nIteration > {}", i);
+        
+        let a = rng.random_range(0..7);
+
+        // println!("{}", a);
+
+        let mut game = ConnectFourGame::new();
+        game.make_move(a);
+
+        let (policy, score) = model.forward(&game);
+
+        let mut target_policy: [f32; 7] = [0f32; 7];
+        target_policy[a as usize] = 1f32;
+
+        let target_policy = Tensor::from_slice(&target_policy).to_kind(Kind::Float).to_device(Device::cuda_if_available());
+
+        let target_score = Tensor::from_slice(&[(if a < 3 { 1 } else if a > 3 { -1 } else { 0 }) as f32]).to_device(Device::cuda_if_available());
+
+        println!("{}", policy);
+        println!("{}", target_policy);
+        println!("{}", score);
+        println!("{}", target_score);
+
+        let loss = model.loss(&policy, &score, &target_policy, &target_score);
+
+        println!("{}", loss);
+
+        optimizer.zero_grad();
+        optimizer.backward_step(&loss);
+
+        // if i % 1000 == 0 {
+        //     var_store.save("./checkpoints/test_training.ckpt").unwrap();
+        // }
+    }
 }
